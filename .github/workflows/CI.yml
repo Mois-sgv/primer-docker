@@ -15,7 +15,7 @@ on:
 env:
   # Servidor del registro de contenedores de GitHub
   REGISTRY: ghcr.io  # Región geográfica de AWS donde configuraremos nuestra infraestructura gratuita (Norte de Virginia)
-  AWS_REGION: us-east-1  # Nombre exacto del servicio de red que crearemos más adelante dentro de Amazon ECS
+  AWS_REGION: eu-north-1  # Nombre exacto del servicio de red que crearemos más adelante dentro de Amazon ECS
   ECS_SERVICE: primer-docker-service  # Nombre exacto del clúster lógico de servidores que alojará nuestros contenedores en AWS
   ECS_CLUSTER: primer-docker-cluster  # Ruta interna dentro de nuestro repositorio hacia el plano de configuración de la tarea
   ECS_TASK_DEFINITION: .aws/task-definition.json   # Identificador del contenedor. 
