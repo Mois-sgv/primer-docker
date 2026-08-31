@@ -1,21 +1,65 @@
+# 1. Nombre del flujo de trabajo que se mostrará en la interfaz web de GitHub
 name: Test Ubuntu Hola Mundo
+run-name: Deploy in live by ${{github.actor}}
 
+# 2. Define los "Disparadores" (Triggers). Especifica CUÁNDO debe ejecutarse este pipeline
 on:
   push:
+    # El flujo se activará automáticamente cada vez que hagas un 'git push' a la rama 'main'
     branches: [ main ]
 
+# 3. Bloque principal que contiene el conjunto de tareas (trabajos) a realizar
 jobs:
+  # Nombre interno del trabajo (puedes ponerle el nombre que quieras)
   build-and-test:
+    # Especifica el sistema operativo del servidor virtual (Runner) que nos regala GitHub.
+    # En este caso, usamos la versión estable más reciente de Ubuntu Linux en la nube.
     runs-on: ubuntu-latest
 
+    # 4. Lista secuencial de pasos que ejecutará el servidor virtual de GitHub
     steps:
+      # PASO 1: Utiliza una acción oficial de GitHub para clonar tu código dentro del servidor virtual.
+      # Sin esto, el servidor de GitHub no podría leer tu Dockerfile ni tu script 'app.sh'.
       - name: Descargar codigo del repositorio
         uses: actions/checkout@v4
 
-      - name: Construir la Imagen Docker
+      - name: Ejecutar pruebas de calidad del codigo
         run: |
-          docker build -t mi-hola-mundo-ubuntu:latest .
+          echo "Iniciando pruebas automáticas de Pre-flight..."
+          
+          # Test 1: Verificar si el archivo app.sh existe realmente
+          if [ ! -f "app.sh" ]; then
+            echo "❌ ERROR CRÍTICO: El archivo app.sh no existe en el repositorio."
+            exit 1
+          fi
+          echo "✅ Test 1 aprobado: El archivo app.sh está presente."
+          
+          # Test 2: Verificar si el archivo app.sh tiene contenido adentro
+          if [ ! -s "app.sh" ]; then
+            echo "❌ ERROR CRÍTICO: El archivo app.sh está completamente vacío."
+            exit 1
+          fi
+          echo "✅ Test 2 aprobado: El archivo contiene código ejecutable."
+          
+          echo "¡Todas las pruebas automatizadas pasaron con éxito! Procediendo a Docker..."
 
-      - name: Probar el contenedor y ver el resultado
-        run: |
-          docker run --rm mi-hola-mundo-ubuntu:latest
+      # =========================================================================
+      # LOS PASOS DE DOCKER CONTINÚAN DE FORMA SEGURA ABAJO
+      # =========================================================================
+      - name: Iniciar sesion en GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir y subir Imagen Docker con Cache
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
