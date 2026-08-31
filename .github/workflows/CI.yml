@@ -1,75 +1,75 @@
-# 1. Nombre del flujo de trabajo que se mostrará en la interfaz web de GitHub
-name: Test Ubuntu Hola Mundo
+# 1. Nombre del flujo de trabajo que se mostrará en la interfaz web de GitHub Actions
+name: CI
+# Define el nombre dinámico que se verá en cada ejecución en vivo indicando quién lo activó
 run-name: Deploy in live by ${{ github.actor }}
 
 # 2. Define los "Disparadores" (Triggers). Especifica CUÁNDO debe ejecutarse este pipeline
 on:
   push:
+    # El flujo se activará automáticamente cada vez que hagas un 'git push' a la rama 'main'
     branches: [ main ]
-
-# =========================================================================
-# 🗂️ VARIABLES GLOBALES (Perfectamente alineadas en la raíz del archivo)
-# =========================================================================
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 # 3. Bloque principal que contiene el conjunto de tareas (trabajos) a realizar
 jobs:
-  build-and-test:
+  # Nombre interno del trabajo de automatización
+  build-and-push:
+    # Especifica el sistema operativo del servidor virtual (Runner) en la nube que nos regala GitHub
     runs-on: ubuntu-latest
+    
+    # Otorgamos permisos explícitos de seguridad para que este pipeline pueda escribir 
+    # y almacenar el paquete del contenedor final de forma segura en tu perfil de GitHub
     permissions:
       contents: read
       packages: write
 
+    # 4. Lista secuencial de pasos que ejecutará el servidor virtual de GitHub en la nube
     steps:
-      # PASO 1: Clonar el código del repositorio
+      # PASO 1: Utiliza la acción oficial de GitHub para clonar tu código dentro del servidor virtual.
       - name: Descargar codigo del repositorio
         uses: actions/checkout@v4
 
-      # PASO NUEVO: Convierte el nombre de tu repositorio a minúsculas para cumplir la regla de Docker
-      - name: Formatear nombre del repositorio a minusculas
-        id: string
-        run: |
-          echo "IMAGE_NAME=${{ github.repository }}" | tr '[:upper:]' '[:lower:]' >> $GITHUB_ENV
-
-
-      # PASO 2: Pruebas automatizadas Pre-flight (¡Que ya funcionan de 10!)
+      # PASO 2: Fase de pruebas automatizadas (Pre-flight checks) de calidad del software.
+      # Valida que los archivos existan y tengan contenido antes de perder tiempo compilando Docker.
       - name: Ejecutar pruebas de calidad del codigo
         run: |
           echo "Iniciando pruebas de Pre-flight..."
+          # Test 1: Comprueba si el script obligatorio 'app.sh' existe en la raíz
           if [ ! -f "app.sh" ]; then
             echo "❌ ERROR: Falta app.sh"
             exit 1
           fi
+          # Test 2: Comprueba si el script 'app.sh' tiene código adentro o si está vacío
           if [ ! -s "app.sh" ]; then
             echo "❌ ERROR: app.sh vacio"
             exit 1
           fi
           echo "¡Pruebas superadas con exito!"
 
-      # =========================================================================
-      # 🚀 PASO CORRECTIVO CRÍTICO: Levantar el motor Buildx avanzado
-      # =========================================================================
+      # PASO 3: Levanta e inicializa el motor avanzado de construcción 'Docker Buildx'.
+      # Esto reemplaza al driver básico de Docker y permite exportar la caché hacia GitHub de forma nativa.
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # PASO 4: Iniciar sesión en GitHub Container Registry de forma segura
+      # PASO 4: Inicia sesión de forma segura en GitHub Container Registry (ghcr.io)
+      # Utiliza tu usuario dinámico y una contraseña temporal automática (GITHUB_TOKEN)
       - name: Iniciar sesion en GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # PASO 5: Compilar y guardar con soporte completo de caché exportable
+      # PASO 5: Compila tu Dockerfile y sube la imagen optimizada a internet.
+      # IMPORTANTE: Forzamos la ruta manual 'mois-sgv' 100% en minúsculas para evitar el error de Docker.
       - name: Construir y subir Imagen Docker con Cache
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          push: true  # Le ordena subir la imagen al almacén una vez finalice la construcción
+          # Definimos las etiquetas de versión fija y versión única utilizando el ID del commit (SHA)
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ghcr.io/mois-sgv/primer-docker:latest
+            ghcr.io/mois-sgv/primer-docker:${{ github.sha }}
+          # Configuración nativa para leer y escribir la caché de capas de forma automática en GitHub Actions
           cache-from: type=gha
           cache-to: type=gha,mode=max
