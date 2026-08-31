@@ -1,0 +1,21 @@
+name: Test Ubuntu Hola Mundo
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Construir la Imagen Docker
+        run: |
+          docker build -t mi-hola-mundo-ubuntu:latest .
+
+      - name: Probar el contenedor y ver el resultado
+        run: |
+          docker run --rm mi-hola-mundo-ubuntu:latest
