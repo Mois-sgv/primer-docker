@@ -1,75 +1,121 @@
-# 1. Nombre del flujo de trabajo que se mostrará en la interfaz web de GitHub Actions
-name: CI
-# Define el nombre dinámico que se verá en cada ejecución en vivo indicando quién lo activó
+# 1. Nombre descriptivo del flujo de trabajo que se visualizará en la pestaña Actions de GitHub
+name: CI - Test y Despliegue en AWS ECS
+# Define el título dinámico de cada ejecución en vivo, indicando el usuario de Git que lanzó el cambio
 run-name: Deploy in live by ${{ github.actor }}
 
-# 2. Define los "Disparadores" (Triggers). Especifica CUÁNDO debe ejecutarse este pipeline
+# 2. Define los "Disparadores" (Triggers). Especifica CUÁNDO debe activarse de forma automática el robot
 on:
   push:
-    # El flujo se activará automáticamente cada vez que hagas un 'git push' a la rama 'main'
+    # El pipeline se despertará e iniciará tareas cada vez que hagas un 'git push' a la rama 'main'
     branches: [ main ]
 
-# 3. Bloque principal que contiene el conjunto de tareas (trabajos) a realizar
+# =========================================================================
+# 🗂️ SECCIÓN GLOBAL: Definición de Variables de Entorno para GitHub y AWS
+# =========================================================================
+env:
+  # Servidor del registro de contenedores de GitHub
+  REGISTRY: ghcr.io  # Región geográfica de AWS donde configuraremos nuestra infraestructura gratuita (Norte de Virginia)
+  AWS_REGION: us-east-1  # Nombre exacto del servicio de red que crearemos más adelante dentro de Amazon ECS
+  ECS_SERVICE: primer-docker-service  # Nombre exacto del clúster lógico de servidores que alojará nuestros contenedores en AWS
+  ECS_CLUSTER: primer-docker-cluster  # Ruta interna dentro de nuestro repositorio hacia el plano de configuración de la tarea
+  ECS_TASK_DEFINITION: .aws/task-definition.json   # Identificador del contenedor. 
+  CONTAINER_NAME: mi-contenedor-ubuntu # Debe coincidir MILIMÉTRICAMENTE con el campo "name" de tu archivo JSON
+
+# 3. Bloque principal que agrupa la lista de trabajos y tareas automatizadas
 jobs:
-  # Nombre interno del trabajo de automatización
-  build-and-push:
-    # Especifica el sistema operativo del servidor virtual (Runner) en la nube que nos regala GitHub
+  build-and-deploy:    # Indica que GitHub debe asignarnos un servidor virtual Linux limpio y actualizado en su nube
     runs-on: ubuntu-latest
     
-    # Otorgamos permisos explícitos de seguridad para que este pipeline pueda escribir 
-    # y almacenar el paquete del contenedor final de forma segura en tu perfil de GitHub
+    # Otorgamos permisos explícitos de seguridad para que este pipeline pueda autenticarse,
+    # leer el historial de Git y guardar paquetes (imágenes Docker) dentro de tu perfil
     permissions:
       contents: read
       packages: write
 
-    # 4. Lista secuencial de pasos que ejecutará el servidor virtual de GitHub en la nube
+    # 4. Lista secuencial y ordenada de pasos cronológicos que ejecutará el servidor virtual
     steps:
-      # PASO 1: Utiliza la acción oficial de GitHub para clonar tu código dentro del servidor virtual.
+      # PASO 1: Descarga y clona todo el código fuente de tu repositorio dentro del servidor de GitHub
       - name: Descargar codigo del repositorio
         uses: actions/checkout@v4
 
-      # PASO 2: Fase de pruebas automatizadas (Pre-flight checks) de calidad del software.
-      # Valida que los archivos existan y tengan contenido antes de perder tiempo compilando Docker.
+      # PASO 2: Fase de pruebas automatizadas (Pre-flight checks) para garantizar la calidad del software.
+      # Si el archivo 'app.sh' falta o está vacío, rompe el pipeline inmediatamente y no compila Docker.
       - name: Ejecutar pruebas de calidad del codigo
         run: |
-          echo "Iniciando pruebas de Pre-flight..."
-          # Test 1: Comprueba si el script obligatorio 'app.sh' existe en la raíz
+          echo "Iniciando pruebas de Pre-flight de nivel DevOps..."
+          # Test A: Verifica si el script existe en el directorio raíz
           if [ ! -f "app.sh" ]; then
-            echo "❌ ERROR: Falta app.sh"
+            echo "❌ ERROR CRÍTICO: El archivo app.sh no se encuentra en el repositorio."
             exit 1
           fi
-          # Test 2: Comprueba si el script 'app.sh' tiene código adentro o si está vacío
+          echo "✅ Test A aprobado: El archivo app.sh está presente."
+          
+          # Test B: Verifica si el script tiene código ejecutable o si se quedó en blanco
           if [ ! -s "app.sh" ]; then
-            echo "❌ ERROR: app.sh vacio"
+            echo "❌ ERROR CRÍTICO: El archivo app.sh está completamente vacío."
             exit 1
           fi
-          echo "¡Pruebas superadas con exito!"
+          echo "✅ Test B aprobado: El archivo contiene comandos válidos."
+          echo "¡Validaciones completadas con éxito! Avanzando hacia el entorno de Docker..."
 
-      # PASO 3: Levanta e inicializa el motor avanzado de construcción 'Docker Buildx'.
-      # Esto reemplaza al driver básico de Docker y permite exportar la caché hacia GitHub de forma nativa.
+      # PASO 3: Inicializa la herramienta avanzada 'Docker Buildx' en el servidor virtual.
+      # Esto permite crear capas de Docker optimizadas y exportar la caché de compilación hacia la nube.
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # PASO 4: Inicia sesión de forma segura en GitHub Container Registry (ghcr.io)
-      # Utiliza tu usuario dinámico y una contraseña temporal automática (GITHUB_TOKEN)
+      # PASO 4: Inicia sesión de forma segura en el registro de contenedores corporativo de GitHub (GHCR)
+      # Emplea tu usuario automático de Git y un token con contraseña temporal e invisible (GITHUB_TOKEN)
       - name: Iniciar sesion en GHCR
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # PASO 5: Compila tu Dockerfile y sube la imagen optimizada a internet.
-      # IMPORTANTE: Forzamos la ruta manual 'mois-sgv' 100% en minúsculas para evitar el error de Docker.
+      # PASO 5: Compila tu Dockerfile comentado, descarga Ubuntu y sube el paquete final a internet.
+      # Utiliza la caché compartida de GitHub para acelerar el proceso de minutos a escasos segundos.
       - name: Construir y subir Imagen Docker con Cache
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true  # Le ordena subir la imagen al almacén una vez finalice la construcción
-          # Definimos las etiquetas de versión fija y versión única utilizando el ID del commit (SHA)
+          push: true # Indica que debe enviar la imagen empaquetada a internet inmediatamente al terminar
+          # Guarda la imagen bajo la etiqueta ':latest' (más reciente) y una etiqueta con el hash único de tu commit
           tags: |
             ghcr.io/mois-sgv/primer-docker:latest
             ghcr.io/mois-sgv/primer-docker:${{ github.sha }}
-          # Configuración nativa para leer y escribir la caché de capas de forma automática en GitHub Actions
+          # Configuración del motor de lectura y escritura de caché en los servidores de GitHub Actions
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # =========================================================================================
+      # 🚀 SECCIÓN DE DESPLIEGUE CONTINUO (CD): CONEXIÓN DE EXTREMO A EXTREMO CON AMAZON AWS
+      # =========================================================================================
+
+      # PASO 6: Autenticación en la nube de AWS utilizando las llaves con candado que guardaste en tu repositorio.
+      # GitHub desencripta de forma segura tus variables ocultas en el último segundo para abrir las puertas de Amazon.
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # PASO 7: Abre tu archivo '.aws/task-definition.json' e inyecta dinámicamente el ID largo del commit actual (:sha).
+      # Esto automatiza la trazabilidad: AWS sabrá con precisión quirúrgica qué versión exacta de tu código debe descargar.
+      - name: Actualizar ID de imagen en la definicion de tarea de AWS
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ghcr.io/mois-sgv/primer-docker:${{ github.sha }}
+
+      # PASO 8: Envía los planos actualizados hacia la plataforma de Amazon ECS para actualizar tus servidores.
+      # NOTA DE COSTO: 'wait-for-service-stability' está en 'false' para evitar consumir minutos gratis esperando en la nube.
+      - name: Desplegar nueva tarea en Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: false
