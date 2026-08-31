@@ -27,6 +27,13 @@ jobs:
       - name: Descargar codigo del repositorio
         uses: actions/checkout@v4
 
+      # PASO NUEVO: Convierte el nombre de tu repositorio a minúsculas para cumplir la regla de Docker
+      - name: Formatear nombre del repositorio a minusculas
+        id: string
+        run: |
+          echo "IMAGE_NAME=${{ github.repository }}" | tr '[:upper:]' '[:lower:]' >> $GITHUB_ENV
+
+
       # PASO 2: Pruebas automatizadas Pre-flight (¡Que ya funcionan de 10!)
       - name: Ejecutar pruebas de calidad del codigo
         run: |
