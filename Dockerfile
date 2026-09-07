@@ -1,6 +1,6 @@
 # 1. Define la imagen base oficial de Linux Ubuntu desde Docker Hub
 # Usamos la etiqueta de versión estable más reciente (24.04)
-FROM ubuntu:24.04
+FROM alpine:3.20
 
 # 2. Copia el script 'app.sh' desde tu computadora hacia la raíz del contenedor
 # El formato es: COPY <origen_en_tu_pc> <destino_en_el_contenedor>

@@ -24,7 +24,7 @@ env:
 # 3. Bloque principal que agrupa la lista de trabajos y tareas automatizadas
 jobs:
   build-and-deploy:    # Indica que GitHub debe asignarnos un servidor virtual Linux limpio y actualizado en su nube
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     # Otorgamos permisos explícitos de seguridad para que este pipeline pueda autenticarse,
     # leer el historial de Git y guardar paquetes (imágenes Docker) dentro de tu perfil
