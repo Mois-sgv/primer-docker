@@ -12,4 +12,4 @@ RUN chmod +x /app.sh
 
 # 4. Establece el comando definitivo que se ejecutará al encender el contenedor
 # Llama al intérprete de Bash para que procese de forma automática nuestro script
-CMD ["/bin/bash", "/app.sh"]
+CMD ["/bin/sh", "/app.sh"]
